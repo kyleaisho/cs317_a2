@@ -13,6 +13,12 @@
 
 package ubc.cs317.rtsp.client.net;
 
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.Socket;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -30,6 +36,9 @@ public class RTSPConnection {
 
 	private Session session;
 	private Timer rtpTimer;
+	private Socket socket;
+	BufferedReader RTSPBufferedReader;
+	BufferedWriter RTSPBufferedWriter;
 
 	// TODO Add additional fields, if necessary
 	
@@ -51,10 +60,21 @@ public class RTSPConnection {
 			throws RTSPException {
 
 		this.session = session;
+		
+		try {
+			socket = new Socket(server, port);
+			RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+			
+			
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
 
 		// TODO
 	}
-
 	/**
 	 * Sends a SETUP request to the server. This method is responsible for
 	 * sending the SETUP request, receiving the response and retrieving the
