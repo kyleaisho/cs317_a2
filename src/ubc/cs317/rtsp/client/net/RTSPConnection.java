@@ -18,7 +18,9 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.DatagramSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -39,6 +41,10 @@ public class RTSPConnection {
 	private Socket socket;
 	BufferedReader RTSPBufferedReader;
 	BufferedWriter RTSPBufferedWriter;
+	private static String video;
+	private DatagramSocket datagramSocket;
+	static int datagramPort = 1024;
+	int CSeqNum = 0;
 
 	// TODO Add additional fields, if necessary
 	
@@ -93,6 +99,20 @@ public class RTSPConnection {
 	 *             not return a successful response.
 	 */
 	public synchronized void setup(String videoName) throws RTSPException {
+		RTSPConnection.video = videoName;
+		try {
+			
+			try{
+				datagramSocket = new DatagramSocket(datagramPort);
+				datagramSocket.setSoTimeout(10);
+			} catch (SocketException se){
+				System.out.println("Socket exception: " + se);
+				System.exit(0);
+			}
+			CSeqNum++;
+		}
+		
+		
 
 		// TODO
 	}
