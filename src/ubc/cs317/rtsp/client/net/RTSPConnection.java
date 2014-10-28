@@ -111,6 +111,9 @@ public class RTSPConnection {
 			}
 			CSeqNum++;
 		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
 		
 		
 
