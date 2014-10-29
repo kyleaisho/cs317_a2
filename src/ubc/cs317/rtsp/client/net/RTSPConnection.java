@@ -16,6 +16,7 @@ package ubc.cs317.rtsp.client.net;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.DatagramSocket;
@@ -45,6 +46,13 @@ public class RTSPConnection {
 	private DatagramSocket datagramSocket;
 	static int datagramPort = 1024;
 	int CSeqNum = 0;
+	String RTSP_V = "RTSP/1.0";
+	String SPACE = "\r\n";
+	int state;
+	final static int PLAYING = 2;
+	final static int READY = 1;
+	final static int INITALIZE = 0;
+	int RTSPid = 0;
 
 	// TODO Add additional fields, if necessary
 	
@@ -71,6 +79,7 @@ public class RTSPConnection {
 			socket = new Socket(server, port);
 			RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+			state = INITALIZE;
 			
 			
 		}
@@ -110,6 +119,13 @@ public class RTSPConnection {
 				System.exit(0);
 			}
 			CSeqNum++;
+			sendRequest("SETUP");
+			if (this.readResponse() != 200) {
+				System.out.println("Invalid Response");
+			}
+			else {
+				state = READY;
+			}
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -120,6 +136,28 @@ public class RTSPConnection {
 		// TODO
 	}
 
+	private void sendRequest(String string) throws IOException {
+		// TODO Auto-generated method stub
+		String request =string + "" + video + "" + RTSP_V + SPACE;
+		RTSPBufferedWriter.write(request);
+		String Cseq = "Cseq: " + CSeqNum + SPACE;
+		RTSPBufferedWriter.write(Cseq);
+		if(state == INITALIZE){
+			String transport = "TRANSPORT: RTP/UDP; client_port= " + datagramPort + SPACE;
+			RTSPBufferedWriter.write(transport);
+		}
+		else {
+			String session = "Session " + RTSPid + SPACE;
+			RTSPBufferedWriter.write(session);
+		}
+		RTSPBufferedWriter.flush();
+		
+	}
+	
+	private int readResponse() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 	/**
 	 * Sends a PLAY request to the server. This method is responsible for
 	 * sending the request, receiving the response and, in case of a successful
