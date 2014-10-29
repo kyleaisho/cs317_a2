@@ -22,6 +22,7 @@ import java.io.OutputStreamWriter;
 import java.net.DatagramSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.StringTokenizer;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -44,7 +45,7 @@ public class RTSPConnection {
 	BufferedWriter RTSPBufferedWriter;
 	private static String video;
 	private DatagramSocket datagramSocket;
-	static int datagramPort = 1024;
+	static int datagramPort = 26650;
 	int CSeqNum = 0;
 	String RTSP_V = "RTSP/1.0";
 	String SPACE = "\r\n";
@@ -52,7 +53,9 @@ public class RTSPConnection {
 	final static int PLAYING = 2;
 	final static int READY = 1;
 	final static int INITALIZE = 0;
-	int RTSPid = 0;
+	int sessID = 0;
+	final static int SET = 200;
+	final static int TIMEOUT = 1000;
 
 	// TODO Add additional fields, if necessary
 	
@@ -113,15 +116,17 @@ public class RTSPConnection {
 			
 			try{
 				datagramSocket = new DatagramSocket(datagramPort);
-				datagramSocket.setSoTimeout(10);
-			} catch (SocketException se){
-				System.out.println("Socket exception: " + se);
+				datagramSocket.setSoTimeout(TIMEOUT);
+			} catch (SocketException s){
+				System.out.println("Socket exception: " + s);
 				System.exit(0);
 			}
 			CSeqNum++;
 			sendRequest("SETUP");
-			if (this.readResponse() != 200) {
+			System.out.println(343);
+			if (readResponse() != SET) {
 				System.out.println("Invalid Response");
+				
 			}
 			else {
 				state = READY;
@@ -130,33 +135,57 @@ public class RTSPConnection {
 		catch (Exception e) {
 			e.printStackTrace();
 		}
-		
-		
-
-		// TODO
 	}
 
 	private void sendRequest(String string) throws IOException {
-		// TODO Auto-generated method stub
-		String request =string + "" + video + "" + RTSP_V + SPACE;
+		String request =string + " " + video + " " + RTSP_V + SPACE;
 		RTSPBufferedWriter.write(request);
 		String Cseq = "Cseq: " + CSeqNum + SPACE;
 		RTSPBufferedWriter.write(Cseq);
 		if(state == INITALIZE){
-			String transport = "TRANSPORT: RTP/UDP; client_port= " + datagramPort + SPACE;
+			String transport = "TRANSPORT: RTP/UDP; client_port= " + datagramPort + SPACE + SPACE;
 			RTSPBufferedWriter.write(transport);
 		}
 		else {
-			String session = "Session " + RTSPid + SPACE;
+			String session = "Session " + sessID + SPACE + SPACE;
 			RTSPBufferedWriter.write(session);
 		}
 		RTSPBufferedWriter.flush();
-		
 	}
 	
 	private int readResponse() {
-		// TODO Auto-generated method stub
-		return 0;
+		int code = 0;
+		String response;
+		try {
+			response = RTSPBufferedReader.readLine();
+			code = readCode(response);
+			if(code == 200){
+				response = RTSPBufferedReader.readLine();
+				response = RTSPBufferedReader.readLine();
+				setID(response);
+				
+				
+				
+			}
+		}
+		catch (IOException e) {
+			
+		}
+		return code;
+	}
+	
+	private int readCode(String response) {
+		int code;
+		StringTokenizer token = new StringTokenizer(response);
+		token.nextToken();
+		code = Integer.valueOf(token.nextToken());
+		return code;
+	}
+	
+	private void setID(String response) {
+		StringTokenizer session = new StringTokenizer(response);
+		session.nextToken();
+		sessID = Integer.valueOf(session.nextToken());
 	}
 	/**
 	 * Sends a PLAY request to the server. This method is responsible for
