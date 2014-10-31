@@ -24,6 +24,9 @@ import java.net.DatagramSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.StringTokenizer;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -39,6 +42,9 @@ public class RTSPConnection {
 
 	private static final int BUFFER_LENGTH = 15000;
 	private static final long MINIMUM_DELAY_READ_PACKETS_MS = 20;
+	
+	// Header is always 12 bytes
+	private static final int HEADER_LENGTH = 12;
 
 	private Session session;
 	private Timer rtpTimer;
@@ -256,7 +262,7 @@ public class RTSPConnection {
 	 * the parseRTPPacket method) and the method session.processReceivedFrame is
 	 * called with the resulting packet. In case of timeout no exception should
 	 * be thrown and no frame should be processed.
-	 * @throws  
+	 * 
 	 */
 	private void receiveRTPPacket() {
 		
@@ -270,10 +276,12 @@ public class RTSPConnection {
 			datagramSocket.receive(rtpPacket);
 			Frame f = parseRTPPacket(rtpPacket.getData(), BUFFER_LENGTH);
 			session.processReceivedFrame(f);
+			
 		}
 		catch (IOException e) {
 			System.out.println(e.getMessage());
 			// no frame should be processed
+			
 		}
 		
 		
@@ -331,7 +339,68 @@ public class RTSPConnection {
 	 */
 	private static Frame parseRTPPacket(byte[] packet, int length) {
 
-		// TODO
-		return null; // Replace with a proper Frame
+		Frame f = null;
+		byte [] header = new byte[HEADER_LENGTH]; 
+		byte [] payload = new byte[packet.length - header.length]; 
+		
+		header = Arrays.copyOfRange(packet, 0, HEADER_LENGTH - 1);
+		payload = Arrays.copyOfRange(packet, HEADER_LENGTH, packet.length - 1);
+		
+		int payloadAndMarker = (int) header[1];
+		//  bit shift to separate the payload type and marker
+		
+		// Shift the bits one to the left (should add trailing zero and remove first bit
+		int pt = payloadAndMarker << 1;
+		// Shift back should remove trailing 0 and add a leading zero
+		pt = pt >> 1;
+		
+		// Shift to get the first bit and with 1
+		int mark = (payloadAndMarker >>> 7) & 1;
+		boolean marker = (mark == 1) ? true : false;
+		
+		
+		// Sequence number is 16 bits/2 bytes in and is 16 bits/2 bytes long
+		byte [] seqNum = Arrays.copyOfRange(header, 6, 7);
+		short sn = 0;
+		
+		// Switch array to a little endian short for frame
+		// ByteBuffer.wrap(seqNum).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(sn);
+		
+		// Time stamp is 32 bits/4 bytes and is the last 4 bytes of the header
+		byte [] timeStamp = Arrays.copyOfRange(header, 8, header.length - 1);
+		int ts = 0;
+		// Switch array to little endian int for timestamp
+		// ByteBuffer.wrap(timeStamp).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().put(ts);
+		
+		/*
+		 * 	public Frame(byte payloadType, boolean marker, short sequenceNumber,
+			int timestamp, byte[] payload, int offset, int length)
+		 */
+		f = new Frame((byte)pt, marker, sn, ts, payload, 0, payload.length - 1);
+		
+		return f; // Replace with a proper Frame
 	}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
