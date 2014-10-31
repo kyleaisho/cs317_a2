@@ -56,6 +56,7 @@ public class RTSPConnection {
 	int sessID = 0;
 	final static int SET = 200;
 	final static int TIMEOUT = 1000;
+	static long startingTime = 0;
 
 	// TODO Add additional fields, if necessary
 	
@@ -80,18 +81,15 @@ public class RTSPConnection {
 		
 		try {
 			socket = new Socket(server, port);
-			RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-			RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 			state = INITALIZE;
 			
 			
 		}
 		catch (Exception e) {
 			e.printStackTrace();
+			throw new RTSPException(e);
 		}
-		
-
-		// TODO
+	
 	}
 	/**
 	 * Sends a SETUP request to the server. This method is responsible for
@@ -113,42 +111,47 @@ public class RTSPConnection {
 	public synchronized void setup(String videoName) throws RTSPException {
 		RTSPConnection.video = videoName;
 		try {
-			
-			try{
-				datagramSocket = new DatagramSocket(datagramPort);
-				datagramSocket.setSoTimeout(TIMEOUT);
-			} catch (SocketException s){
-				System.out.println("Socket exception: " + s);
-				System.exit(0);
-			}
+			RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 			CSeqNum++;
 			sendRequest("SETUP");
-			System.out.println(343);
 			if (readResponse() != SET) {
 				System.out.println("Invalid Response");
-				
 			}
 			else {
 				state = READY;
 			}
+			
 		}
-		catch (Exception e) {
+		catch (IOException e) {
 			e.printStackTrace();
+			throw new RTSPException(e);
+		}
+		
+		try{
+			datagramSocket = new DatagramSocket(datagramPort);
+			datagramSocket.setSoTimeout(TIMEOUT);
+		} catch (SocketException s){
+			s.printStackTrace();
 		}
 	}
 
 	private void sendRequest(String string) throws IOException {
 		String request =string + " " + video + " " + RTSP_V + SPACE;
 		RTSPBufferedWriter.write(request);
-		String Cseq = "Cseq: " + CSeqNum + SPACE;
+		System.out.print(request);
+		String Cseq = "CSeq: " + CSeqNum + SPACE;
 		RTSPBufferedWriter.write(Cseq);
+		System.out.print(Cseq);
 		if(state == INITALIZE){
 			String transport = "TRANSPORT: RTP/UDP; client_port= " + datagramPort + SPACE + SPACE;
 			RTSPBufferedWriter.write(transport);
+			System.out.print(transport);
 		}
 		else {
-			String session = "Session " + sessID + SPACE + SPACE;
+			String session = "Session: " + sessID + SPACE + SPACE;
 			RTSPBufferedWriter.write(session);
+			System.out.println(session);
 		}
 		RTSPBufferedWriter.flush();
 	}
@@ -158,12 +161,16 @@ public class RTSPConnection {
 		String response;
 		try {
 			response = RTSPBufferedReader.readLine();
+			System.out.println(response);
 			code = readCode(response);
 			if(code == 200){
 				response = RTSPBufferedReader.readLine();
+				System.out.println(response);
 				response = RTSPBufferedReader.readLine();
+				System.out.println(response);
+				if(sessID == 0){
 				setID(response);
-				
+				}
 				
 				
 			}
@@ -195,11 +202,33 @@ public class RTSPConnection {
 	 * 
 	 * @throws RTSPException
 	 *             If there was an error sending or receiving the RTSP data, or
-	 *             if the server did not return a successful response.
+	 *             if the server did not return a successful response. 
 	 */
 	public synchronized void play() throws RTSPException {
+		
+		if(state == READY){
+			
+			CSeqNum++;
+			try {
+				RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+				RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+				sendRequest("PLAY");
+			} catch (IOException e) {
+				
+				e.printStackTrace();
+				throw new RTSPException(e);
+			}
+			if(readResponse()!= 200){
+				System.out.println("Invalid Response");
+			}
+			else{
+				state = PLAYING;
+				startRTPTimer();
+			}
+			
+		}
 
-		// TODO
+
 	}
 
 	/**
