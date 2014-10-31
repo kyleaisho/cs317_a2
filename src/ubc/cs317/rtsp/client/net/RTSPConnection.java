@@ -19,9 +19,11 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.StringTokenizer;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -254,10 +256,27 @@ public class RTSPConnection {
 	 * the parseRTPPacket method) and the method session.processReceivedFrame is
 	 * called with the resulting packet. In case of timeout no exception should
 	 * be thrown and no frame should be processed.
+	 * @throws  
 	 */
 	private void receiveRTPPacket() {
-
-		// TODO
+		
+		// Create a byte array to store the incoming packet
+		byte [] rtpBuff = new byte [BUFFER_LENGTH];
+		
+		// Create a DatagramPacket for the socket to receive
+		DatagramPacket rtpPacket = new DatagramPacket(rtpBuff, BUFFER_LENGTH);
+		
+		try {
+			datagramSocket.receive(rtpPacket);
+			Frame f = parseRTPPacket(rtpPacket.getData(), BUFFER_LENGTH);
+			session.processReceivedFrame(f);
+		}
+		catch (IOException e) {
+			System.out.println(e.getMessage());
+			// no frame should be processed
+		}
+		
+		
 	}
 
 	/**
