@@ -218,7 +218,7 @@ public class RTSPConnection {
 				e.printStackTrace();
 				throw new RTSPException(e);
 			}
-			if(readResponse()!= 200){
+			if(readResponse()!= SET){
 				System.out.println("Invalid Response");
 			}
 			else{
@@ -256,7 +256,8 @@ public class RTSPConnection {
 	 * be thrown and no frame should be processed.
 	 */
 	private void receiveRTPPacket() {
-
+		
+		
 		// TODO
 	}
 
@@ -271,6 +272,24 @@ public class RTSPConnection {
 	 *             if the server did not return a successful response.
 	 */
 	public synchronized void pause() throws RTSPException {
+		if (state == PLAYING){
+			CSeqNum++;
+			try{
+			RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+			sendRequest("PAUSE");
+			} catch (IOException e) {
+				e.printStackTrace();
+				throw new RTSPException(e);
+			}
+			if(readResponse() != SET){
+				System.out.println("Invalid Response");
+			}
+			else{
+				state = READY;
+				rtpTimer.cancel();
+			}
+		}
 
 		// TODO
 	}
