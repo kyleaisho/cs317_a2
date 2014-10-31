@@ -65,8 +65,6 @@ public class RTSPConnection {
 	final static int SET = 200;
 	final static int TIMEOUT = 1000;
 	static long startingTime = 0;
-
-	// TODO Add additional fields, if necessary
 	
 	/**
 	 * Establishes a new connection with an RTSP server. No message is sent at
@@ -226,7 +224,7 @@ public class RTSPConnection {
 				e.printStackTrace();
 				throw new RTSPException(e);
 			}
-			if(readResponse()!= 200){
+			if(readResponse()!= SET){
 				System.out.println("Invalid Response");
 			}
 			else{
@@ -283,8 +281,7 @@ public class RTSPConnection {
 			// no frame should be processed
 			
 		}
-		
-		
+
 	}
 
 	/**
@@ -298,8 +295,24 @@ public class RTSPConnection {
 	 *             if the server did not return a successful response.
 	 */
 	public synchronized void pause() throws RTSPException {
-
-		// TODO
+		if (state == PLAYING){
+			CSeqNum++;
+			try{
+			RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+			sendRequest("PAUSE");
+			} catch (IOException e) {
+				e.printStackTrace();
+				throw new RTSPException(e);
+			}
+			if(readResponse() != SET){
+				System.out.println("Invalid Response");
+			}
+			else{
+				state = READY;
+				rtpTimer.cancel();
+			}
+		}
 	}
 
 	/**
@@ -316,8 +329,27 @@ public class RTSPConnection {
 	 *             if the server did not return a successful response.
 	 */
 	public synchronized void teardown() throws RTSPException {
-
-		// TODO
+		if (state == PLAYING || state == READY){
+		CSeqNum++;
+		try {
+			RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+			sendRequest("TEARDOWN");
+			if(readResponse() != SET){
+				throw new RTSPException("Invalid Response");
+			}
+			else{
+			rtpTimer.cancel();
+			state = INITALIZE;
+			datagramSocket.close();
+			sessID = 0;
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+			throw new RTSPException(e);
+		}
+		}
+		
 	}
 
 	/**
@@ -326,7 +358,15 @@ public class RTSPConnection {
 	 * connection, if it is still open.
 	 */
 	public synchronized void closeConnection() {
-		// TODO
+		try{
+			socket.close();
+			datagramSocket.close();
+			RTSPBufferedReader.close();
+			RTSPBufferedWriter.close();
+		} catch (IOException e){
+			System.out.println("Im in the exception"); //If we delete this we get stuck in a loop when we disconnect WTF?
+			e.printStackTrace();
+		}
 	}
 
 	/**
