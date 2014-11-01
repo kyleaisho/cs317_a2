@@ -26,6 +26,7 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.sql.Date;
 import java.util.Arrays;
 import java.util.StringTokenizer;
 import java.util.Timer;
@@ -42,7 +43,7 @@ public class RTSPConnection {
 
 	private static final int BUFFER_LENGTH = 15000;
 	private static final long MINIMUM_DELAY_READ_PACKETS_MS = 20;
-	
+
 	// Header is always 12 bytes
 	private static final int HEADER_LENGTH = 12;
 
@@ -65,7 +66,15 @@ public class RTSPConnection {
 	final static int SET = 200;
 	final static int TIMEOUT = 1000;
 	static long startingTime = 0;
-	
+
+	// Fields for Part B Statistics
+	static int totalPackets = 0;
+	static int totalPacketsLost = 0;
+	static int totalPacketsOutOfOrder = 0;
+	long startTime;
+	long endTime;
+
+
 	/**
 	 * Establishes a new connection with an RTSP server. No message is sent at
 	 * this point, and no stream is set up.
@@ -84,18 +93,18 @@ public class RTSPConnection {
 			throws RTSPException {
 
 		this.session = session;
-		
+
 		try {
 			socket = new Socket(server, port);
 			state = INITALIZE;
-			
-			
+
+
 		}
 		catch (Exception e) {
 			e.printStackTrace();
 			throw new RTSPException(e);
 		}
-	
+
 	}
 	/**
 	 * Sends a SETUP request to the server. This method is responsible for
@@ -127,13 +136,13 @@ public class RTSPConnection {
 			else {
 				state = READY;
 			}
-			
+
 		}
 		catch (IOException e) {
 			e.printStackTrace();
 			throw new RTSPException(e);
 		}
-		
+
 		try{
 			datagramSocket = new DatagramSocket(datagramPort);
 			datagramSocket.setSoTimeout(TIMEOUT);
@@ -161,7 +170,7 @@ public class RTSPConnection {
 		}
 		RTSPBufferedWriter.flush();
 	}
-	
+
 	private int readResponse() {
 		int code = 0;
 		String response;
@@ -175,18 +184,18 @@ public class RTSPConnection {
 				response = RTSPBufferedReader.readLine();
 				System.out.println(response);
 				if(sessID == 0){
-				setID(response);
+					setID(response);
 				}
-				
-				
+
+
 			}
 		}
 		catch (IOException e) {
-			
+
 		}
 		return code;
 	}
-	
+
 	private int readCode(String response) {
 		int code;
 		StringTokenizer token = new StringTokenizer(response);
@@ -194,7 +203,7 @@ public class RTSPConnection {
 		code = Integer.valueOf(token.nextToken());
 		return code;
 	}
-	
+
 	private void setID(String response) {
 		StringTokenizer session = new StringTokenizer(response);
 		session.nextToken();
@@ -211,16 +220,17 @@ public class RTSPConnection {
 	 *             if the server did not return a successful response. 
 	 */
 	public synchronized void play() throws RTSPException {
-		
+
 		if(state == READY){
-			
+
+			startTime = System.currentTimeMillis();
 			CSeqNum++;
 			try {
 				RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 				sendRequest("PLAY");
 			} catch (IOException e) {
-				
+
 				e.printStackTrace();
 				throw new RTSPException(e);
 			}
@@ -231,7 +241,7 @@ public class RTSPConnection {
 				state = PLAYING;
 				startRTPTimer();
 			}
-			
+
 		}
 
 
@@ -263,23 +273,23 @@ public class RTSPConnection {
 	 * 
 	 */
 	private void receiveRTPPacket() {
-		
+
 		// Create a byte array to store the incoming packet
 		byte [] rtpBuff = new byte [BUFFER_LENGTH];
-		
+
 		// Create a DatagramPacket for the socket to receive
 		DatagramPacket rtpPacket = new DatagramPacket(rtpBuff, BUFFER_LENGTH);
-		
+
 		try {
 			datagramSocket.receive(rtpPacket);
 			Frame f = parseRTPPacket(rtpPacket.getData(), BUFFER_LENGTH);
 			session.processReceivedFrame(f);
-			
+
 		}
 		catch (IOException e) {
 			System.out.println(e.getMessage());
 			// no frame should be processed
-			
+
 		}
 
 	}
@@ -298,9 +308,9 @@ public class RTSPConnection {
 		if (state == PLAYING){
 			CSeqNum++;
 			try{
-			RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-			RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-			sendRequest("PAUSE");
+				RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+				RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+				sendRequest("PAUSE");
 			} catch (IOException e) {
 				e.printStackTrace();
 				throw new RTSPException(e);
@@ -330,26 +340,28 @@ public class RTSPConnection {
 	 */
 	public synchronized void teardown() throws RTSPException {
 		if (state == PLAYING || state == READY){
-		CSeqNum++;
-		try {
-			RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-			RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-			sendRequest("TEARDOWN");
-			if(readResponse() != SET){
-				throw new RTSPException("Invalid Response");
+			CSeqNum++;
+			try {
+				RTSPBufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+				RTSPBufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+				sendRequest("TEARDOWN");
+				if(readResponse() != SET){
+					throw new RTSPException("Invalid Response");
+				}
+				else{
+					rtpTimer.cancel();
+					state = INITALIZE;
+					datagramSocket.close();
+					sessID = 0;
+					endTime = System.currentTimeMillis();
+					getStats();
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+				throw new RTSPException(e);
 			}
-			else{
-			rtpTimer.cancel();
-			state = INITALIZE;
-			datagramSocket.close();
-			sessID = 0;
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-			throw new RTSPException(e);
 		}
-		}
-		
+
 	}
 
 	/**
@@ -382,22 +394,42 @@ public class RTSPConnection {
 		Frame f = null;
 		byte [] header = new byte[HEADER_LENGTH]; 
 		byte [] payload = new byte[packet.length - header.length]; 
-		
+
 		header = Arrays.copyOfRange(packet, 0, HEADER_LENGTH - 1);
 		payload = Arrays.copyOfRange(packet, HEADER_LENGTH, packet.length - 1);
-		
+
 		// get the marker, payload type, sequence number and timestamp from the header
 		boolean mark = ((header[1] >> 7) == 0x1);
 		byte pt = (byte) ((header[1] & 0xff) & 0x7f);
 		short sn = (short) ((header[2] << 8) | (header[3] & 0xff));
 		int ts = (((header[4] & 0xff) << 24) 
 				| ((header[5] & 0xff) << 16)
-                | ((header[6] & 0xff) << 8) 
-                | (header[7] & 0xff));
+				| ((header[6] & 0xff) << 8) 
+				| (header[7] & 0xff));
 		f = new Frame(pt, mark, sn, ts, payload, 0, payload.length - 1);
-		
-		return f; // Replace with a proper Frame
+
+		// Adding function to calculate statistics for Part A
+		updatePacketNums();
+
+		return f; 
 	}
+
+
+	private static void updatePacketNums() {
+		totalPackets++;
+		//totalPacketsLost++;
+		//totalPacketsOutOfOrder++;
+	}
+	
+	private void getStats() {
+		long runTime = (endTime - startTime)/1000;
+		System.out.println("Total packets " + totalPackets);
+		System.out.println("Running time in seconds " + runTime);
+		System.out.println("Total packets/sec: " + totalPackets / runTime);
+		System.out.println();
+		System.out.println();
+	}
+
 }
 
 
