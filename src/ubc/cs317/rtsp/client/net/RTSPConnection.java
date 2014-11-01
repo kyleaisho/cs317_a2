@@ -423,10 +423,8 @@ public class RTSPConnection {
 	
 	private void getStats() {
 		long runTime = (endTime - startTime)/1000;
-		System.out.println("Total packets " + totalPackets);
-		System.out.println("Running time in seconds " + runTime);
 		System.out.println("Total packets/sec: " + totalPackets / runTime);
-		System.out.println();
+		System.out.println("Total packets lost");
 		System.out.println();
 	}
 
