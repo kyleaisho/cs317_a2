@@ -14,7 +14,7 @@ The server behaves similar to A but more severe, there is more noticeable pauses
 The server is sending out packets in the wrong order. Since our player doesn't currently deal with this behaviour the frames jump back and forward.
 
 * FUNKY D
-This server behaves similar to C but is more sever, more packets are out of order and it appears they are out of order by greater numbers. This causes the frames to jump back farther.
+This server behaves similar to C but is more severe, more packets are out of order and it appears they are out of order by greater numbers. This causes the frames to jump back farther.
 
 * FUNKY E
 The packets seem to be arriving in order and at a steady rate but are being sent very fast and the client is playing them as fast as it receives them.
@@ -36,14 +36,14 @@ You may add additional columns with more relevant data.
 FUNKY SERVER | FRAME RATE | PACKET LOSS RATE | OUT OF ORDER
              | (pkts/sec) | (lost pkts/sec)  | (/sec)
 -------------+------------+------------------+-------------
-     A       |            |                  |
-     B       |            |                  |
-     C       |            |                  |
-     D       |            |                  |
-     E       |            |                  |
-     F       |            |                  |
-     G       |            |                  |
-     H       |            |                  |
+     A       |    23      |      2           |   0
+     B       |    14      |      10          |   0
+     C       |    23      |      0           |   4
+     D       |    10      |      10          |   2
+     E       |    69      |      0           |   1
+     F       |    9       |      0           |   0
+     G       |    7       |      2           |   0
+     H       |    17      |      1           |   0
 
 
 === Result of analysis ===
@@ -51,18 +51,26 @@ FUNKY SERVER | FRAME RATE | PACKET LOSS RATE | OUT OF ORDER
 Explain in a few words what you believe is actually happening based on the statistics above.
 
 * FUNKY A
+Losing a couple packets/frames per second, but the server is sending them at a normal speed.
 
 * FUNKY B
+Losing lots of packets (40% ish) but sending them at a normal speed.
 
 * FUNKY C
+Sending the packets at a normal speed but they are arriving and playing out of order.
 
 * FUNKY D
+Losing a lot of packets and sending some out of order. Similar to B but with out of order packets as well.
 
 * FUNKY E
+Sending too many frames per second, and the player plays them as they come in.
 
 * FUNKY F
+Sends too few packets per second.
 
 * FUNKY G
+Sends too few packets per second and loses some packets.
 
 * FUNKY H
+Slightly slower packet rate than normal and loses some packets.
 

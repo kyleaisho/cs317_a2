@@ -71,6 +71,11 @@ public class RTSPConnection {
 	static int totalPackets = 0;
 	static int totalPacketsLost = 0;
 	static int totalPacketsOutOfOrder = 0;
+
+	static short [] sequenceNums;
+	static int index = 0;
+	static short topSeqNum = 0;
+
 	long startTime;
 	long endTime;
 
@@ -222,7 +227,8 @@ public class RTSPConnection {
 	public synchronized void play() throws RTSPException {
 
 		if(state == READY){
-
+			
+			sequenceNums = new short [10000];
 			startTime = System.currentTimeMillis();
 			CSeqNum++;
 			try {
@@ -410,22 +416,39 @@ public class RTSPConnection {
 
 		// Adding function to calculate statistics for Part A
 		updatePacketNums();
+		sequenceNums[index] = sn;
 
 		return f; 
 	}
 
 
-	private static void updatePacketNums() {
+	public static void updatePacketNums() {
 		totalPackets++;
-		//totalPacketsLost++;
-		//totalPacketsOutOfOrder++;
+		index++;
 	}
-	
-	private void getStats() {
+
+	public int outOfOrderPackets()
+	{
+		int i;
+		int ret = 0;
+		for (i = 0; i < index; i++) {
+			if (sequenceNums[i] > topSeqNum)
+				topSeqNum = sequenceNums[index];
+			if (sequenceNums[i + 1] < sequenceNums[i])
+				ret++;
+		}
+		return ret;
+	}
+
+	public int lostPackets() {
+		return topSeqNum - sequenceNums[0]  + 1 - totalPackets;
+	}
+
+	public void getStats() {
 		long runTime = (endTime - startTime)/1000;
-		System.out.println("Total packets/sec: " + totalPackets / runTime);
-		System.out.println("Total packets lost");
-		System.out.println();
+		System.out.println("Packets/sec: " + totalPackets / runTime);
+		System.out.println("Packets out of order/sec: " + outOfOrderPackets() / runTime);
+		System.out.println("Packets lost/sec: " + lostPackets() / runTime);
 	}
 
 }
