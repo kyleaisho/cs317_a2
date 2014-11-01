@@ -5,20 +5,28 @@ how it affects the video playback experience. Then explain what you believe is
 happening and what is causing the described behaviour.
 
 * FUNKY A
+The server appears to have sent packets out slowly simulating low bandwidth which lead to pauses in the video.
 
 * FUNKY B
+The server behaves similar to A but more severe, there is more noticeable pauses in the playback.
 
 * FUNKY C
+The server is sending out packets in the wrong order. Since our player doesn't currently deal with this behaviour the frames jump back and forward.
 
 * FUNKY D
+This server behaves similar to C but is more sever, more packets are out of order and it appears they are out of order by greater numbers. This causes the frames to jump back farther.
 
 * FUNKY E
+The packets seem to be arriving in order and at a steady rate but are being sent very fast and the client is playing them as fast as it receives them.
 
 * FUNKY F
+The server is sending packets very slowly but at a steady rate so and the client plays them slow. This is resulting in a low framerate for the player.
 
 * FUNKY G
+The packets are arriving slowly and at an uneven rate so the video plays with a low framerate and pauses occassionaly.
 
 * FUNKY H
+The packets seem to be sent at an uneven rate, playback appears normal, then pauses, speeds up, then normal again in a cycle.
 
 
 === Statistics ===
