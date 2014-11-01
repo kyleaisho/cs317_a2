@@ -386,37 +386,15 @@ public class RTSPConnection {
 		header = Arrays.copyOfRange(packet, 0, HEADER_LENGTH - 1);
 		payload = Arrays.copyOfRange(packet, HEADER_LENGTH, packet.length - 1);
 		
-		int payloadAndMarker = (int) header[1];
-		//  bit shift to separate the payload type and marker
-		
-		// Shift the bits one to the left (should add trailing zero and remove first bit
-		int pt = payloadAndMarker << 1;
-		// Shift back should remove trailing 0 and add a leading zero
-		pt = pt >> 1;
-		
-		// Shift to get the first bit and with 1
-		int mark = (payloadAndMarker >>> 7) & 1;
-		boolean marker = (mark == 1) ? true : false;
-		
-		
-		// Sequence number is 16 bits/2 bytes in and is 16 bits/2 bytes long
-		byte [] seqNum = Arrays.copyOfRange(header, 6, 7);
-		short sn = 0;
-		
-		// Switch array to a little endian short for frame
-		// ByteBuffer.wrap(seqNum).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(sn);
-		
-		// Time stamp is 32 bits/4 bytes and is the last 4 bytes of the header
-		byte [] timeStamp = Arrays.copyOfRange(header, 8, header.length - 1);
-		int ts = 0;
-		// Switch array to little endian int for timestamp
-		// ByteBuffer.wrap(timeStamp).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().put(ts);
-		
-		/*
-		 * 	public Frame(byte payloadType, boolean marker, short sequenceNumber,
-			int timestamp, byte[] payload, int offset, int length)
-		 */
-		f = new Frame((byte)pt, marker, sn, ts, payload, 0, payload.length - 1);
+		// get the marker, payload type, sequence number and timestamp from the header
+		boolean mark = ((header[1] >> 7) == 0x1);
+		byte pt = (byte) ((header[1] & 0xff) & 0x7f);
+		short sn = (short) ((header[2] << 8) | (header[3] & 0xff));
+		int ts = (((header[4] & 0xff) << 24) 
+				| ((header[5] & 0xff) << 16)
+                | ((header[6] & 0xff) << 8) 
+                | (header[7] & 0xff));
+		f = new Frame(pt, mark, sn, ts, payload, 0, payload.length - 1);
 		
 		return f; // Replace with a proper Frame
 	}
