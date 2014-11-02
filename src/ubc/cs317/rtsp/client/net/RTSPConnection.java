@@ -23,10 +23,6 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.sql.Date;
 import java.util.Arrays;
 import java.util.StringTokenizer;
 import java.util.Timer;
@@ -49,6 +45,7 @@ public class RTSPConnection {
 
 	private Session session;
 	private Timer rtpTimer;
+	private Timer fpsTimer;
 	private Socket socket;
 	BufferedReader RTSPBufferedReader;
 	BufferedWriter RTSPBufferedWriter;
@@ -78,6 +75,15 @@ public class RTSPConnection {
 
 	long startTime;
 	long endTime;
+	
+	// Fields for the frame buffer
+	int frameStart;
+	int frameEnd;
+	Frame [] fBuffer = new Frame[BUFFER_LENGTH];
+	// Frame rate should be 24 fps, 42 is 1/24th of a millisecond
+	static final long FRAME_TIMING = 42;
+	int fps = 24;
+	long lastFramePlayed = 0;
 
 
 	/**
@@ -289,21 +295,59 @@ public class RTSPConnection {
 		try {
 			datagramSocket.receive(rtpPacket);
 			Frame f = parseRTPPacket(rtpPacket.getData(), BUFFER_LENGTH);
-			session.processReceivedFrame(f);
-
+			frameBuffer(f);
 		}
 		catch (IOException e) {
 			System.out.println(e.getMessage());
 			// no frame should be processed
-
 		}
-
 	}
+	
+	private void startFPSTimer() {
+		fpsTimer = new Timer();
+		fpsTimer.schedule(new TimerTask() {
 
+			@Override
+			public void run() {
+				playFrames();
+			}
+			
+		}, 0, FRAME_TIMING);
+	}
+	
+	/**
+	 * Buffer to collect frames to allow smoother play back
+	 * @param f Frame to add to the buffer
+	 */
+	private void frameBuffer(Frame f) {
+		// Insert incoming frame into the buffer
+		fBuffer[frameEnd] = f;
+		if (frameEnd - frameStart >= fps) {
+			playFrames();
+		}
+		frameEnd++;
+	}
+	
+	private void playFrames() {
+		long currentTime;
+		while (frameStart <= frameEnd) {
+			currentTime = System.currentTimeMillis();
+			if (currentTime - FRAME_TIMING >= lastFramePlayed) {
+				playFrame();
+			}
+		}
+	}
+	
+	private void playFrame() {
+		session.processReceivedFrame(fBuffer[frameStart]);
+		frameStart++;
+		lastFramePlayed = System.currentTimeMillis();
+	}
+	
 	/**
 	 * Sends a PAUSE request to the server. This method is responsible for
 	 * sending the request, receiving the response and, in case of a successful
-	 * response, cancelling the RTP timer responsible for receiving RTP packets
+	 * response, canceling the RTP timer responsible for receiving RTP packets
 	 * with frames.
 	 * 
 	 * @throws RTSPException
@@ -421,14 +465,19 @@ public class RTSPConnection {
 		return f; 
 	}
 
-
+	/**
+	 * Increases total packets received and the index
+	 */
 	public static void updatePacketNums() {
 		totalPackets++;
 		index++;
 	}
 
-	public int outOfOrderPackets()
-	{
+	/**
+	 * Iterates over the array of received sequence numbers and returns the number of the out of order
+	 * @return number of out of order packets
+	 */
+	public int outOfOrderPackets() {
 		int i;
 		int ret = 0;
 		for (i = 0; i < index; i++) {
@@ -440,10 +489,17 @@ public class RTSPConnection {
 		return ret;
 	}
 
+	/**
+	 * Calculates the lost packets based on the biggest sequence number and the total packets
+	 * @return number of lost packets
+	 */
 	public int lostPackets() {
 		return topSeqNum - sequenceNums[0]  + 1 - totalPackets;
 	}
-
+	
+	/**
+	 * Prints out the stats needed to complete the questions in Answers.txt
+	 */
 	public void getStats() {
 		long runTime = (endTime - startTime)/1000;
 		System.out.println("Packets/sec: " + totalPackets / runTime);
