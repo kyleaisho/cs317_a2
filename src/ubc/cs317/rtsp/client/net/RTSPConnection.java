@@ -81,9 +81,8 @@ public class RTSPConnection {
 	int frameEnd;
 	Frame [] fBuffer = new Frame[BUFFER_LENGTH];
 	// Frame rate should be 24 fps, 42 is 1/24th of a millisecond
-	static final long FRAME_TIMING = 42;
-	int fps = 24;
-	long lastFramePlayed = 0;
+	static final long FRAME_TIMING = 60;
+	int bufferedFramesNeeded = 48;
 
 
 	/**
@@ -252,6 +251,7 @@ public class RTSPConnection {
 			else{
 				state = PLAYING;
 				startRTPTimer();
+				startFPSTimer();
 			}
 
 		}
@@ -309,7 +309,7 @@ public class RTSPConnection {
 
 			@Override
 			public void run() {
-				playFrames();
+				playFrame();
 			}
 			
 		}, 0, FRAME_TIMING);
@@ -319,29 +319,18 @@ public class RTSPConnection {
 	 * Buffer to collect frames to allow smoother play back
 	 * @param f Frame to add to the buffer
 	 */
-	private void frameBuffer(Frame f) {
+	private  void frameBuffer(Frame f) {
 		// Insert incoming frame into the buffer
 		fBuffer[frameEnd] = f;
-		if (frameEnd - frameStart >= fps) {
-			playFrames();
-		}
 		frameEnd++;
 	}
 	
-	private void playFrames() {
-		long currentTime;
-		while (frameStart <= frameEnd) {
-			currentTime = System.currentTimeMillis();
-			if (currentTime - FRAME_TIMING >= lastFramePlayed) {
-				playFrame();
-			}
-		}
-	}
 	
 	private void playFrame() {
-		session.processReceivedFrame(fBuffer[frameStart]);
-		frameStart++;
-		lastFramePlayed = System.currentTimeMillis();
+		if (frameEnd - frameStart >= bufferedFramesNeeded) {
+			session.processReceivedFrame(fBuffer[frameStart]);
+			frameStart++;
+		}
 	}
 	
 	/**
